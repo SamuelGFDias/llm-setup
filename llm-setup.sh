@@ -15,7 +15,7 @@
 #   ./llm-setup.sh ui down               stop and remove the Open WebUI container (keeps its data)
 #   ./llm-setup.sh ui purge [--yes]      remove the container AND its data volume
 #   ./llm-setup.sh up                    start all services (Ollama, then Open WebUI)
-#   ./llm-setup.sh down                  stop all services (Open WebUI, then Ollama); data is kept
+#   ./llm-setup.sh down                  stop all services and disable Ollama at boot; data is kept
 #   ./llm-setup.sh uninstall [--yes] [--purge-models]  remove everything above, plus Ollama itself
 set -euo pipefail
 
@@ -139,6 +139,7 @@ servicos() {
     else
       echo "Ollama (systemd):     inativo ou não gerido pelo systemd"
     fi
+    echo "Sobe no boot:         $(systemctl is-enabled ollama 2>/dev/null || echo não)"
   else
     echo "Ollama:               não instalado"
   fi
@@ -383,8 +384,8 @@ up_all() {
     echo "Ollama não está instalado. Rode primeiro: ./llm-setup.sh install" >&2
     return 1
   fi
-  echo "Iniciando serviço do Ollama..."
-  sudo systemctl start ollama
+  echo "Habilitando e iniciando serviço do Ollama..."
+  sudo systemctl enable --now ollama
   for _ in $(seq 1 30); do
     if curl -s -m 2 "$OLLAMA_URL/api/version" >/dev/null 2>&1; then break; fi
     sleep 1
@@ -395,8 +396,8 @@ up_all() {
 down_all() {
   ui_down
   if command -v ollama >/dev/null 2>&1; then
-    echo "Parando serviço do Ollama..."
-    sudo systemctl stop ollama
+    echo "Parando e desabilitando serviço do Ollama (não sobe no boot)..."
+    sudo systemctl disable --now ollama
   fi
   echo "Todos os serviços parados. Dados e modelos foram mantidos."
 }
@@ -448,7 +449,7 @@ Diagnóstico:
 
 Serviços:
   up                          sobe tudo (Ollama e depois Open WebUI); dados mantidos
-  down                        derruba tudo (Open WebUI e depois Ollama); dados mantidos
+  down                        derruba tudo e desabilita o boot do Ollama; dados mantidos
 
 Ollama:
   install                     instala o Ollama se não existir
